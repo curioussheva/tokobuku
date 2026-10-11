@@ -1,7 +1,7 @@
 // Qaf-style product card. Mirrors penerbitqaf.com: square cover, sale badge
 // overlapping the cover corner, title, strikethrough + sale price, add-to-cart.
 // language: TSX, app: Next.js 15 (Medusa storefront), styling: Tailwind
-import { Text, clx } from "@modules/common/components/ui"
+import { Text } from "@modules/common/components/ui"
 import { getProductPrice } from "@lib/util/get-product-price"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"

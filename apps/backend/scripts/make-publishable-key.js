@@ -23,7 +23,10 @@ module.exports = async function makePublishableKey({ container }) {
     })
   ).token
 
-  fs.writeFileSync(path.join(__dirname, "pk.txt"), token)
+  // medusa exec transpiles the script, so __dirname can resolve to undefined.
+  // Fall back to the repo's scripts/ directory when that happens.
+  const dir = typeof __dirname === "string" && __dirname ? __dirname : "scripts"
+  fs.writeFileSync(path.join(dir, "pk.txt"), String(token))
 }
 
 export const config = {
