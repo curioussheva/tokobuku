@@ -102,6 +102,46 @@ jobs:
             echo "key=pk_ci_placeholder" >> "$GITHUB_OUTPUT"
           fi
 
+      # The storefront statically renders pages at build time, which calls the
+      # store API. Without a running backend those calls fail with
+      # ECONNREFUSED and the build dies on page-data collection. Start the
+      # backend in the background and wait for it to accept connections.
+      - name: Start backend
+        working-directory: apps/backend
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/medusa_store
+          JWT_SECRET: ci-jwt-secret
+          COOKIE_SECRET: ci-cookie-secret
+          STORE_CORS: http://localhost:8000
+          ADMIN_CORS: http://localhost:7001,http://localhost:9000
+          AUTH_CORS: http://localhost:7001,http://localhost:9000
+        run: |
+          pnpm run start > backend.log 2>&1 &
+          echo $! > backend.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:9000/health > /dev/null; then
+              echo "backend up after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "backend did not become healthy"
+          tail -30 backend.log
+          exit 1
+
+      # A seeded region is required for the storefront's locale/region
+      # resolution during static generation.
+      - name: Seed region
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d medusa_store -tAc "
+            INSERT INTO region (id, name, currency_code, automatic_taxes, created_at, updated_at)
+            SELECT 'reg_' || replace(gen_random_uuid()::text, '-', ''), 'Indonesia', 'idr', false, now(), now()
+            WHERE NOT EXISTS (SELECT 1 FROM region)
+            ON CONFLICT DO NOTHING;
+          "
+
       - name: Build storefront
         working-directory: apps/storefront
         env:
@@ -124,3 +164,11 @@ jobs:
             apps/storefront/.next
             apps/storefront/public
           if-no-files-found: warn
+
+      - name: Stop backend
+        if: always()
+        working-directory: apps/backend
+        run: |
+          if [ -f backend.pid ]; then
+            kill "$(cat backend.pid)" 2>/dev/null || true
+          fi
