@@ -96,8 +96,16 @@ jobs:
             cat seed.log
             exit 1
           fi
-          # The script prints the publishable key as its last line.
-          KEY=$(grep -v '^\s*$' seed.log | tail -n 1 | tr -d '\r\n')
+          # The script writes the token to ./scripts/seed-key.txt because
+          # medusa appends its own log lines to stdout after the script runs,
+          # which makes a last-line grab unreliable.
+          KEY_FILE="$GITHUB_WORKSPACE/apps/backend/scripts/seed-key.txt"
+          if [ ! -s "$KEY_FILE" ]; then
+            echo "--- no publishable key file produced ---"
+            cat seed.log
+            exit 1
+          fi
+          KEY=$(tr -d '\r\n' < "$KEY_FILE")
           echo "key=$KEY" >> "$GITHUB_OUTPUT"
 
       # The storefront's static rendering calls the store API; without a live

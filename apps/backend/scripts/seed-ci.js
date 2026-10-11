@@ -106,8 +106,11 @@ export default async function seedCi({ container }) {
   logger.info(
     `CI seed complete: store=${store.id} region=${region.id} key=${publishableApiKey.token}`
   )
-  // Last line of stdout is parsed by the CI workflow.
-  console.log(publishableApiKey.token)
+  // Write the token to a file rather than stdout: medusa appends its own log
+  // lines after the script runs, so a last-line grab in CI picks those up.
+  await import("fs/promises").then((fs) =>
+    fs.writeFile(new URL("./seed-key.txt", import.meta.url), publishableApiKey.token)
+  )
 }
 
 export const config = {
