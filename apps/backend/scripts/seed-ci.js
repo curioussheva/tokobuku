@@ -90,9 +90,11 @@ export default async function seedCi({ container }) {
           status: "published",
           description: "Produk dummy untuk build CI",
           handle: "buku-contoh",
+          options: [{ title: "Default", values: ["Default"] }],
           variants: [
             {
               title: "Default",
+              options: { Default: "Default" },
               prices: [{ amount: 99000, currency_code: "idr" }],
             },
           ],
