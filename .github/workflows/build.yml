@@ -91,7 +91,7 @@ jobs:
           COOKIE_SECRET: ci-cookie-secret
         run: |
           SCRIPT="$GITHUB_WORKSPACE/apps/backend/scripts/seed-ci.js"
-          if ! pnpm exec medusa exec -- "$SCRIPT" > seed.log 2>&1; then
+          if ! pnpm exec medusa exec "$SCRIPT" > seed.log 2>&1; then
             echo "--- seed-ci failed, log follows ---"
             cat seed.log
             exit 1
