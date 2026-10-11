@@ -91,7 +91,11 @@ jobs:
           COOKIE_SECRET: ci-cookie-secret
         run: |
           SCRIPT="$GITHUB_WORKSPACE/apps/backend/scripts/seed-ci.js"
-          pnpm exec medusa exec -- "$SCRIPT" > seed.log 2>&1
+          if ! pnpm exec medusa exec -- "$SCRIPT" > seed.log 2>&1; then
+            echo "--- seed-ci failed, log follows ---"
+            cat seed.log
+            exit 1
+          fi
           # The script prints the publishable key as its last line.
           KEY=$(grep -v '^\s*$' seed.log | tail -n 1 | tr -d '\r\n')
           echo "key=$KEY" >> "$GITHUB_OUTPUT"
