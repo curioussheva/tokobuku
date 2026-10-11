@@ -83,14 +83,15 @@ jobs:
           JWT_SECRET: ci-jwt-secret
           COOKIE_SECRET: ci-cookie-secret
         # The key is written to a file so the step's output stays clean and
-        # does not leak it into the log.
+        # does not leak it into the log. Medusa logs progress lines on stdout,
+        # so the script writes the token to pk.txt and only the file content
+        # is forwarded to the build.
         run: |
-          pnpm exec medusa exec -- ./scripts/make-publishable-key.js > pk.txt 2>/dev/null || true
-          if [ -s pk.txt ]; then
-            echo "key=$(cat pk.txt)" >> "$GITHUB_OUTPUT"
+          pnpm exec medusa exec -- ./scripts/make-publishable-key.js
+          PK_FILE=./scripts/pk.txt
+          if [ -s "$PK_FILE" ]; then
+            echo "key=$(cat "$PK_FILE")" >> "$GITHUB_OUTPUT"
           else
-            # No script yet (first run on a fresh repo) — fall back to a
-            # placeholder so the storefront config check still passes.
             echo "key=pk_ci_placeholder" >> "$GITHUB_OUTPUT"
           fi
 

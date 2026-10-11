@@ -1,6 +1,12 @@
 const checkEnvVariables = require("./check-env-variables")
 
-checkEnvVariables()
+// next.config.js is loaded by every Next.js entrypoint, including `next lint`
+// and `next tsc`. The publishable key is only needed to talk to the backend at
+// request time, so gating those commands on it makes lint/typecheck fail on a
+// fresh clone that has no backend yet. Enforce it only for a real build.
+if (process.env.NEXT_PUBLIC_CHECK_ENV !== "false") {
+  checkEnvVariables()
+}
 
 /**
  * Medusa Cloud-related environment variables

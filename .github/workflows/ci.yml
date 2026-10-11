@@ -13,8 +13,10 @@ concurrency:
 
 env:
   CI: "true"
-  # Service worker registration is opt-out; keep it on in CI so the PWA
-  # paths are exercised even though there is no browser here.
+  # next.config.js loads check-env-variables for every Next entrypoint. The
+  # publishable key does not exist yet at lint/typecheck time — it is created
+  # by the Build pipeline — so opt those commands out of the hard failure.
+  NEXT_PUBLIC_CHECK_ENV: "false"
   NEXT_PUBLIC_SW_ENABLED: "true"
 
 jobs:
