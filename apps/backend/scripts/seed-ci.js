@@ -1,19 +1,19 @@
 // CI build-time seed: provisions the minimum the storefront needs to render
 // statically — store, sales channel, publishable key linked to that channel,
 // region, and one dummy product. Runs before `next build`.
-// Run with: pnpm exec medusa exec -- ./scripts/seed-ci.js
-// language: JS, target: Medusa v2 backend scripts
+// Run with: pnpm exec medusa exec ./scripts/seed-ci.js
+// language: JS (ESM — medusa exec loads this through ts-node/ESM), Medusa v2
 
-const {
+import {
   createApiKeysWorkflow,
   createProductsWorkflow,
   createRegionsWorkflow,
   createSalesChannelsWorkflow,
   createStoresWorkflow,
   linkSalesChannelsToApiKeyWorkflow,
-} = require("@medusajs/medusa/core-flows")
+} from "@medusajs/medusa/core-flows"
 
-module.exports = async function seedCi({ container }) {
+export default async function seedCi({ container }) {
   const logger = container.resolve("logger")
 
   const { result: salesChannels } = await createSalesChannelsWorkflow(
@@ -45,9 +45,7 @@ module.exports = async function seedCi({ container }) {
         {
           name: "QF Pustaka",
           default_sales_channel_id: defaultChannel.id,
-          supported_currencies: [
-            { currency_code: "idr", is_default: true },
-          ],
+          supported_currencies: [{ currency_code: "idr", is_default: true }],
         },
       ],
     },
@@ -77,17 +75,10 @@ module.exports = async function seedCi({ container }) {
           status: "published",
           description: "Produk dummy untuk build CI",
           handle: "buku-contoh",
-          shipping_profile_id: undefined,
-          thumbnails: [],
           variants: [
             {
               title: "Default",
-              prices: [
-                {
-                  amount: 99000,
-                  currency_code: "idr",
-                },
-              ],
+              prices: [{ amount: 99000, currency_code: "idr" }],
             },
           ],
         },
