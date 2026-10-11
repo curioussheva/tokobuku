@@ -3,6 +3,7 @@
 // region, and one dummy product. Runs before `next build`.
 // Run with: pnpm exec medusa exec ./scripts/seed-ci.js
 // language: JS (ESM — medusa exec loads this through ts-node/ESM), Medusa v2
+// Input shapes mirror src/migration-scripts/initial-data-seed.ts.
 
 import {
   createApiKeysWorkflow,
@@ -16,43 +17,57 @@ import {
 export default async function seedCi({ container }) {
   const logger = container.resolve("logger")
 
-  const { result: salesChannels } = await createSalesChannelsWorkflow(
-    container
-  ).run({
+  const {
+    result: [defaultSalesChannel],
+  } = await createSalesChannelsWorkflow(container).run({
     input: {
-      sales_channels: [{ name: "Default channel" }],
-    },
-  })
-  const defaultChannel = salesChannels[0]
-
-  const { result: apiKeys } = await createApiKeysWorkflow(container).run({
-    input: {
-      api_keys: [{ title: "storefront", type: "publishable" }],
-    },
-  })
-  const publishableApiKey = apiKeys[0]
-
-  await linkSalesChannelsToApiKeyWorkflow(container).run({
-    input: {
-      api_key_ids: [publishableApiKey.id],
-      sales_channel_ids: [defaultChannel.id],
-    },
-  })
-
-  const { result: stores } = await createStoresWorkflow(container).run({
-    input: {
-      stores: [
+      salesChannelsData: [
         {
-          name: "QF Pustaka",
-          default_sales_channel_id: defaultChannel.id,
-          supported_currencies: [{ currency_code: "idr", is_default: true }],
+          name: "Default Sales Channel",
+          description: "Created for CI build",
         },
       ],
     },
   })
-  const store = stores[0]
 
-  const { result: regions } = await createRegionsWorkflow(container).run({
+  const {
+    result: [publishableApiKey],
+  } = await createApiKeysWorkflow(container).run({
+    input: {
+      api_keys: [
+        {
+          title: "CI Publishable API Key",
+          type: "publishable",
+          created_by: "",
+        },
+      ],
+    },
+  })
+
+  await linkSalesChannelsToApiKeyWorkflow(container).run({
+    input: {
+      id: publishableApiKey.id,
+      add: [defaultSalesChannel.id],
+    },
+  })
+
+  const {
+    result: [store],
+  } = await createStoresWorkflow(container).run({
+    input: {
+      stores: [
+        {
+          name: "QF Pustaka",
+          supported_currencies: [
+            { currency_code: "idr", is_default: true },
+          ],
+          default_sales_channel_id: defaultSalesChannel.id,
+        },
+      ],
+    },
+  })
+
+  const { result: regionResult } = await createRegionsWorkflow(container).run({
     input: {
       regions: [
         {
@@ -65,7 +80,7 @@ export default async function seedCi({ container }) {
       ],
     },
   })
-  const region = regions[0]
+  const region = regionResult[0]
 
   await createProductsWorkflow(container).run({
     input: {
