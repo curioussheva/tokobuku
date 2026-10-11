@@ -75,37 +75,30 @@ jobs:
           COOKIE_SECRET: ci-cookie-secret
         run: pnpm exec medusa db:migrate
 
-      - name: Create publishable API key
+      - name: Seed backend
         id: pk
-        # medusa exec resolves the script path through its own loader, which
-        # breaks under a job working-directory ("paths[1] argument must be of
-        # type string"). The key is a single row insert, so do it in SQL and
-        # read the token back — no script loader involved.
-        # Idempotent: existing publishable keys are reused.
+        # The storefront statically renders pages at build time and calls the
+        # store API, which needs a valid publishable key linked to a sales
+        # channel plus a region. Seed all of it through the official Medusa
+        # workflows so the link tables are populated correctly.
+        # NOTE: medusa exec resolves the script path through its own loader,
+        # which breaks under a job working-directory, so cd and use an
+        # absolute path.
+        working-directory: apps/backend
         env:
-          PGPASSWORD: postgres
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/medusa_store
+          JWT_SECRET: ci-jwt-secret
+          COOKIE_SECRET: ci-cookie-secret
         run: |
-          KEY=$(psql -h localhost -U postgres -d medusa_store -tAc "
-            INSERT INTO api_key (id, token, type, title, created_by, created_at, updated_at)
-            SELECT replace(gen_random_uuid()::text, '-', ''),
-                   'pk_ci_' || replace(gen_random_uuid()::text, '-', ''),
-                   'publishable', 'storefront', 'ci', now(), now()
-            WHERE NOT EXISTS (SELECT 1 FROM api_key WHERE type = 'publishable')
-            ON CONFLICT DO NOTHING;
+          SCRIPT="$GITHUB_WORKSPACE/apps/backend/scripts/seed-ci.js"
+          pnpm exec medusa exec -- "$SCRIPT" > seed.log 2>&1
+          # The script prints the publishable key as its last line.
+          KEY=$(grep -v '^\s*$' seed.log | tail -n 1 | tr -d '\r\n')
+          echo "key=$KEY" >> "$GITHUB_OUTPUT"
 
-            SELECT token FROM api_key WHERE type = 'publishable' ORDER BY created_at LIMIT 1;
-          " | tr -d '\r\n')
-
-          if [ -n "$KEY" ]; then
-            echo "key=$KEY" >> "$GITHUB_OUTPUT"
-          else
-            echo "key=pk_ci_placeholder" >> "$GITHUB_OUTPUT"
-          fi
-
-      # The storefront statically renders pages at build time, which calls the
-      # store API. Without a running backend those calls fail with
-      # ECONNREFUSED and the build dies on page-data collection. Start the
-      # backend in the background and wait for it to accept connections.
+      # The storefront's static rendering calls the store API; without a live
+      # backend those calls fail with ECONNREFUSED and the build dies on
+      # page-data collection. Start the backend and wait for it to be healthy.
       - name: Start backend
         working-directory: apps/backend
         env:
@@ -128,19 +121,6 @@ jobs:
           echo "backend did not become healthy"
           tail -30 backend.log
           exit 1
-
-      # A seeded region is required for the storefront's locale/region
-      # resolution during static generation.
-      - name: Seed region
-        env:
-          PGPASSWORD: postgres
-        run: |
-          psql -h localhost -U postgres -d medusa_store -tAc "
-            INSERT INTO region (id, name, currency_code, automatic_taxes, created_at, updated_at)
-            SELECT 'reg_' || replace(gen_random_uuid()::text, '-', ''), 'Indonesia', 'idr', false, now(), now()
-            WHERE NOT EXISTS (SELECT 1 FROM region)
-            ON CONFLICT DO NOTHING;
-          "
 
       - name: Build storefront
         working-directory: apps/storefront
