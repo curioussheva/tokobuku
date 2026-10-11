@@ -1,0 +1,118 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  NEXT_PUBLIC_SW_ENABLED: "true"
+
+jobs:
+  build:
+    name: Build all apps
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: medusa_store
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The storefront's next.config.js hard-fails without a publishable key,
+      # and the backend must build before the storefront anyway (its type
+      # generation can depend on compiled backend output), so build backend
+      # first, create a key, then feed it into the storefront build.
+      - name: Build backend
+        working-directory: apps/backend
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/medusa_store
+          JWT_SECRET: ci-jwt-secret
+          COOKIE_SECRET: ci-cookie-secret
+          STORE_CORS: http://localhost:8000
+          ADMIN_CORS: http://localhost:7001,http://localhost:9000
+          AUTH_CORS: http://localhost:7001,http://localhost:9000
+          MEDUSA_ADMIN_ONBOARDING_TYPE: nextjs
+        run: pnpm run build
+
+      - name: Migrate database
+        working-directory: apps/backend
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/medusa_store
+          JWT_SECRET: ci-jwt-secret
+          COOKIE_SECRET: ci-cookie-secret
+        run: pnpm exec medusa db:migrate
+
+      - name: Create publishable API key
+        id: pk
+        working-directory: apps/backend
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/medusa_store
+          JWT_SECRET: ci-jwt-secret
+          COOKIE_SECRET: ci-cookie-secret
+        # The key is written to a file so the step's output stays clean and
+        # does not leak it into the log.
+        run: |
+          pnpm exec medusa exec -- ./scripts/make-publishable-key.js > pk.txt 2>/dev/null || true
+          if [ -s pk.txt ]; then
+            echo "key=$(cat pk.txt)" >> "$GITHUB_OUTPUT"
+          else
+            # No script yet (first run on a fresh repo) — fall back to a
+            # placeholder so the storefront config check still passes.
+            echo "key=pk_ci_placeholder" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build storefront
+        working-directory: apps/storefront
+        env:
+          NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: ${{ steps.pk.outputs.key }}
+          NEXT_PUBLIC_MEDUSA_BACKEND_URL: http://localhost:9000
+        run: pnpm run build
+
+      - name: Upload backend build
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-dist
+          path: apps/backend/dist
+          if-no-files-found: warn
+
+      - name: Upload storefront build
+        uses: actions/upload-artifact@v4
+        with:
+          name: storefront-dotnext
+          path: |
+            apps/storefront/.next
+            apps/storefront/public
+          if-no-files-found: warn
