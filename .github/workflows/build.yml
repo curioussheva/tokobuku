@@ -82,15 +82,14 @@ jobs:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/medusa_store
           JWT_SECRET: ci-jwt-secret
           COOKIE_SECRET: ci-cookie-secret
-        # The key is written to a file so the step's output stays clean and
-        # does not leak it into the log. Medusa logs progress lines on stdout,
-        # so the script writes the token to pk.txt and only the file content
-        # is forwarded to the build.
+        # The script prints the token as the last line of stdout; medusa exec
+        # also logs progress there, so take only the final non-empty line and
+        # trim it before forwarding to the storefront build.
         run: |
-          pnpm exec medusa exec -- ./scripts/make-publishable-key.js
-          PK_FILE=./scripts/pk.txt
-          if [ -s "$PK_FILE" ]; then
-            echo "key=$(cat "$PK_FILE")" >> "$GITHUB_OUTPUT"
+          pnpm exec medusa exec -- ./scripts/make-publishable-key.js > out.log
+          KEY=$(grep -v '^\s*$' out.log | tail -n 1 | tr -d '\r\n')
+          if [ -n "$KEY" ]; then
+            echo "key=$KEY" >> "$GITHUB_OUTPUT"
           else
             echo "key=pk_ci_placeholder" >> "$GITHUB_OUTPUT"
           fi
