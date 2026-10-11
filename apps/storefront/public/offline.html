@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Offline — QF Pustaka</title>
+  <style>
+    :root {
+      --marun: #7a1e1e;
+      --gold: #b0843a;
+      --cream: #faf7f2;
+      --ink: #2c2622;
+      --ink-soft: #5e524a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Georgia, "Times New Roman", serif;
+      background: var(--cream);
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+    .card {
+      max-width: 420px;
+      width: 100%;
+      background: #fff;
+      border: 1px solid rgba(176, 132, 58, 0.35);
+      border-radius: 16px;
+      padding: 48px 32px;
+      box-shadow: 0 1px 3px rgba(44, 38, 34, 0.08);
+    }
+    .mark {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--marun);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 26px;
+      margin: 0 auto 24px;
+    }
+    h1 {
+      font-size: 22px;
+      color: var(--marun);
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+    p {
+      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--ink-soft);
+      margin-bottom: 28px;
+    }
+    button {
+      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      color: #fff;
+      background: var(--marun);
+      border: 0;
+      border-radius: 2px;
+      padding: 12px 28px;
+      cursor: pointer;
+    }
+    button:hover { opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="mark">ق</div>
+    <h1>Kamu sedang offline</h1>
+    <p>
+      Koneksi internet terputus. Beberapa halaman yang sudah pernah kamu buka
+      masih tersedia. Coba lagi saat sinyal kembali.
+    </p>
+    <button onclick="location.reload()">Coba Lagi</button>
+  </div>
+</body>
+</html>
