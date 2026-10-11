@@ -77,20 +77,25 @@ jobs:
 
       - name: Create publishable API key
         id: pk
-        working-directory: apps/backend
+        # medusa exec resolves the script path through its own loader, which
+        # breaks under a job working-directory ("paths[1] argument must be of
+        # type string"). The key is a single row insert, so do it in SQL and
+        # read the token back — no script loader involved.
+        # Idempotent: existing publishable keys are reused.
         env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/medusa_store
-          JWT_SECRET: ci-jwt-secret
-          COOKIE_SECRET: ci-cookie-secret
-        # The script prints the token as the last line of stdout; medusa exec
-        # also logs progress there, so take only the final non-empty line and
-        # trim it before forwarding to the storefront build.
-        # medusa exec resolves the script relative to its own cwd handling,
-        # which breaks with a matrix working-directory — pass an absolute path.
+          PGPASSWORD: postgres
         run: |
-          SCRIPT="$GITHUB_WORKSPACE/apps/backend/scripts/make-publishable-key.js"
-          pnpm exec medusa exec -- "$SCRIPT" > out.log
-          KEY=$(grep -v '^\s*$' out.log | tail -n 1 | tr -d '\r\n')
+          KEY=$(psql -h localhost -U postgres -d medusa_store -tAc "
+            INSERT INTO api_key (id, token, type, title, created_by, created_at, updated_at)
+            SELECT replace(gen_random_uuid()::text, '-', ''),
+                   'pk_ci_' || replace(gen_random_uuid()::text, '-', ''),
+                   'publishable', 'storefront', 'ci', now(), now()
+            WHERE NOT EXISTS (SELECT 1 FROM api_key WHERE type = 'publishable')
+            ON CONFLICT DO NOTHING;
+
+            SELECT token FROM api_key WHERE type = 'publishable' ORDER BY created_at LIMIT 1;
+          " | tr -d '\r\n')
+
           if [ -n "$KEY" ]; then
             echo "key=$KEY" >> "$GITHUB_OUTPUT"
           else
