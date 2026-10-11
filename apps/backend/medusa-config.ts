@@ -16,6 +16,8 @@ module.exports = defineConfig({
     // NODE_ENV=production -> resolveSessionCookieSecurity kembali secure:true.
     // Browser menolak cookie Secure via HTTP -> login dashboard gagal.
     // cookieOptions di-spread terakhir dan menimpa flag default.
-    cookieOptions: { secure: false, sameSite: false, httpOnly: true },
+    // sameSite "none" butuh secure:true; di sini secure dimatikan, jadi pakai
+    // "lax" yang valid untuk HTTP dan tetap mengirim cookie saat navigasi.
+    cookieOptions: { secure: false, sameSite: "lax", httpOnly: true },
   }
 })
